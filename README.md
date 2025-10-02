@@ -13,14 +13,14 @@ A Home Assistant Lovelace card that turns any `number` or `input_number` entity 
 ## Installation
 
 ### Via HACS (recommended)
-1. In Home Assistant, open **HACS ? Integrations ? ? ? Custom repositories**.
+1. In Home Assistant, open **HACS > Integrations > ... > Custom repositories**.
 2. Add this repository URL and select **Frontend** as the category.
 3. Locate **Large Number Input Card** in the HACS store and press **Download**.
 4. Restart the Home Assistant frontend if asked.
 
 ### Manual
 1. Copy `large-number-input-card.js` into your Home Assistant `www/community/large-number-input-card/` folder.
-2. Add the resource to Lovelace: `Configuration ? Dashboards ? Resources ? +`
+2. Add the resource to Lovelace: `Configuration > Dashboards > Resources > +`
    - URL: `/hacsfiles/large-number-input-card/large-number-input-card.js`
    - Resource type: **Module**
 3. Reload the resources or restart the frontend.
@@ -39,7 +39,7 @@ precision: 1
 
 | Option | Type | Default | Description |
 | ------ | ---- | ------- | ----------- |
-| `entity` | string | — | Required. `number.*` or `input_number.*` entity ID. |
+| `entity` | string | - | Required. `number.*` or `input_number.*` entity ID. |
 | `name` | string | friendly name | Card title. |
 | `show_buttons` | boolean | `true` | Show +/- controls alongside the input. |
 | `min` | number | entity min | Override entity minimum. |
@@ -87,4 +87,4 @@ card_mod:
 
 ## License
 
-MIT © 2025
+MIT (c) 2025
