@@ -76,6 +76,7 @@ const registerLargeNumberInputCard = async () => {
       _config: {},
       _value: { state: true },
       _isSyncing: { state: true },
+      _timeDraft: { state: true },
     };
 
     static styles = css`
@@ -168,6 +169,55 @@ const registerLargeNumberInputCard = async () => {
         font-size: 0.95rem;
         color: var(--secondary-text-color);
       }
+
+      .time-grid {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .time-column {
+        display: grid;
+        grid-template-rows: auto auto auto;
+        align-items: center;
+        justify-items: center;
+        gap: 8px;
+      }
+
+      .time-button {
+        width: var(--lnic-time-button-size, 48px);
+        height: var(--lnic-time-button-size, 48px);
+        border-radius: var(--lnic-time-button-radius, 12px);
+        font-size: var(--lnic-time-button-font-size, 1.3rem);
+      }
+
+      .time-input {
+        width: var(--lnic-time-input-width, 5.5rem);
+        padding: var(--lnic-time-input-padding, 0.65rem 0.75rem);
+        font-size: var(--lnic-time-input-font-size, 2.5rem);
+        font-weight: 600;
+        border-radius: var(--lnic-border-radius, 14px);
+        border: 2px solid var(--lnic-border-color, var(--primary-color));
+        background: var(--lnic-background, var(--card-background-color));
+        color: var(--lnic-text-color, var(--primary-text-color));
+        text-align: center;
+        box-shadow: var(--lnic-box-shadow, 0 8px 18px rgba(0, 0, 0, 0.15));
+      }
+
+      .time-input:focus {
+        outline: none;
+        border-color: var(--lnic-focus-border-color, var(--accent-color));
+        box-shadow: var(--lnic-focus-box-shadow, 0 0 0 4px rgba(21, 156, 228, 0.2));
+      }
+
+      .time-separator {
+        font-size: var(--lnic-time-separator-size, 2.5rem);
+        font-weight: 600;
+        color: var(--lnic-text-color, var(--primary-text-color));
+        padding: 0 0.5rem;
+      }
     `;
 
     constructor() {
@@ -175,11 +225,17 @@ const registerLargeNumberInputCard = async () => {
       this._config = {};
       this._value = null;
       this._isSyncing = false;
+      this._timeDraft = null;
     }
 
     setConfig(config) {
       if (!config?.entity) {
         throw new Error("You need to define an entity");
+      }
+
+      const mode = config.mode ?? "number";
+      if (!["number", "time"].includes(mode)) {
+        throw new Error("mode must be either 'number' or 'time'");
       }
 
       this._config = {
@@ -189,10 +245,14 @@ const registerLargeNumberInputCard = async () => {
         min: config.min,
         max: config.max,
         unit: config.unit,
+        mode,
+        hour_step: config.hour_step,
+        minute_step: config.minute_step,
+        time_separator: config.time_separator ?? ":",
         precision: config.precision,
         tap_action: config.tap_action,
         hold_action: config.hold_action,
-        double_tap_action: config.double_action,
+        double_tap_action: config.double_tap_action,
         ...config,
       };
     }
@@ -232,7 +292,24 @@ const registerLargeNumberInputCard = async () => {
       const max = this._resolveNumber("max", stateObj);
       const step = this._resolveNumber("step", stateObj) ?? 1;
       const disabled = stateObj.state === "unavailable" || stateObj.state === "unknown";
-      const value = this._formatValue(this._value ?? stateObj.state);
+      const rawValue = this._value ?? stateObj.state;
+      const numericValue = this._toNumber(rawValue);
+      const isTimeMode = this._config.mode === "time";
+
+      const controls = isTimeMode
+        ? this._renderTimeControls({
+            stateObj,
+            disabled,
+            value: numericValue ?? 0,
+          })
+        : this._renderNumberControls({
+            value: this._formatValue(rawValue),
+            step,
+            disabled,
+          });
+
+      const minDisplay = min !== undefined && isTimeMode ? this._formatTimeLabel(min) : min;
+      const maxDisplay = max !== undefined && isTimeMode ? this._formatTimeLabel(max) : max;
 
       return html`
         <ha-card
@@ -241,32 +318,101 @@ const registerLargeNumberInputCard = async () => {
           actionHandler
         >
           ${name ? html`<div class="header">${name}</div>` : null}
-          <div class="state-row">
-            ${this._config.show_buttons
-              ? html`<button @click=${() => this._adjustValue(-step)} ?disabled=${disabled} title="Decrease">-</button>`
-              : null}
-            <div class="value-input">
-              <input
-                type="number"
-                .value=${value}
-                step=${step}
-                ?disabled=${disabled}
-                @input=${this._handleInput}
-                @change=${this._handleChange}
-              />
-            </div>
-            ${this._config.show_buttons
-              ? html`<button @click=${() => this._adjustValue(step)} ?disabled=${disabled} title="Increase">+</button>`
-              : null}
-          </div>
-          ${(min !== undefined || max !== undefined || unit)
+          ${controls}
+          ${(minDisplay !== undefined || maxDisplay !== undefined || unit)
             ? html`<div class="meta">
-                ${min !== undefined ? html`<span>Min: ${min}</span>` : null}
-                ${max !== undefined ? html`<span>Max: ${max}</span>` : null}
+                ${minDisplay !== undefined ? html`<span>Min: ${minDisplay}</span>` : null}
+                ${maxDisplay !== undefined ? html`<span>Max: ${maxDisplay}</span>` : null}
                 ${unit ? html`<span>${unit}</span>` : null}
               </div>`
             : null}
         </ha-card>
+      `;
+    }
+
+    _renderNumberControls({ value, step, disabled }) {
+      return html`
+        <div class="state-row">
+          ${this._config.show_buttons
+            ? html`<button @click=${() => this._adjustValue(-step)} ?disabled=${disabled} title="Decrease">-</button>`
+            : null}
+          <div class="value-input">
+            <input
+              type="number"
+              .value=${value}
+              step=${step}
+              ?disabled=${disabled}
+              @input=${this._handleInput}
+              @change=${this._handleChange}
+            />
+          </div>
+          ${this._config.show_buttons
+            ? html`<button @click=${() => this._adjustValue(step)} ?disabled=${disabled} title="Increase">+</button>`
+            : null}
+        </div>
+      `;
+    }
+
+    _renderTimeControls({ stateObj, disabled, value }) {
+      const parts = this._getTimeDisplayParts(value, stateObj);
+      const separator = this._config.time_separator ?? ":";
+      return html`
+        <div class="time-grid">
+          ${this._renderTimeColumn({ part: "hours", value: parts.hours, disabled, stateObj })}
+          <div class="time-separator" aria-hidden="true">${separator}</div>
+          ${this._renderTimeColumn({ part: "minutes", value: parts.minutes, disabled, stateObj })}
+        </div>
+      `;
+    }
+
+    _renderTimeColumn({ part, value, disabled, stateObj }) {
+      const showButtons = this._config.show_buttons ?? true;
+      const isHours = part === "hours";
+      const increaseLabel = isHours ? "Increase hours" : "Increase minutes";
+      const decreaseLabel = isHours ? "Decrease hours" : "Decrease minutes";
+      const displayValue = this._formatTimePart(value);
+
+      return html`
+        <div class="time-column">
+          ${showButtons
+            ? html`<button
+                class="time-button time-button--up"
+                @click=${(event) => {
+                  event.preventDefault();
+                  this._adjustTimeValue(part, 1, stateObj);
+                }}
+                ?disabled=${disabled}
+                aria-label=${increaseLabel}
+              >
+                &#9650;
+              </button>`
+            : null}
+          <input
+            class="time-input"
+            type="text"
+            inputmode="numeric"
+            pattern="\d*"
+            .value=${displayValue}
+            ?disabled=${disabled}
+            aria-label=${isHours ? "Hours" : "Minutes"}
+            @input=${(event) => this._handleTimeInput(part, event, stateObj)}
+            @change=${(event) => this._commitTimeInput(part, event, stateObj)}
+            @blur=${(event) => this._commitTimeInput(part, event, stateObj)}
+          />
+          ${showButtons
+            ? html`<button
+                class="time-button time-button--down"
+                @click=${(event) => {
+                  event.preventDefault();
+                  this._adjustTimeValue(part, -1, stateObj);
+                }}
+                ?disabled=${disabled}
+                aria-label=${decreaseLabel}
+              >
+                &#9660;
+              </button>`
+            : null}
+        </div>
       `;
     }
 
@@ -285,9 +431,117 @@ const registerLargeNumberInputCard = async () => {
         return;
       }
 
-      const current = this._toNumber(this._value ?? stateObj.state) ?? 0;
-      const next = current + delta;
-      this._submitValue(next);
+      const current = this._currentNumericValue(stateObj);
+      const target = current + delta;
+      const bounded = this._applyBounds(target, stateObj);
+      this._commitNumeric(bounded, stateObj);
+    }
+
+    _handleTimeInput(part, event, stateObj) {
+      const numeric = this._sanitizeTimePart(part, event?.target?.value);
+      const draft = this._timeDraft ? { ...this._timeDraft } : this._splitTime(this._currentNumericValue(stateObj));
+      draft[part] = numeric;
+      this._timeDraft = draft;
+      if (event?.target) {
+        event.target.value = this._formatTimePart(numeric);
+      }
+    }
+
+    _commitTimeInput(part, event, stateObj) {
+      this._handleTimeInput(part, event, stateObj);
+      this._applyTimeDraft(stateObj);
+    }
+
+    _applyTimeDraft(stateObj) {
+      if (!stateObj) {
+        return;
+      }
+
+      const draft = this._timeDraft ? { ...this._timeDraft } : this._splitTime(this._currentNumericValue(stateObj));
+      const total = Math.max(0, draft.hours) * 60 + draft.minutes;
+      const bounded = this._applyBounds(total, stateObj);
+      const parts = this._splitTime(bounded);
+      this._timeDraft = parts;
+      this._commitNumeric(bounded, stateObj);
+    }
+
+    _getTimeDisplayParts(value, stateObj) {
+      if (this._timeDraft) {
+        return { hours: this._timeDraft.hours, minutes: this._timeDraft.minutes };
+      }
+      return this._splitTime(value ?? this._currentNumericValue(stateObj));
+    }
+
+    _getTimeSteps() {
+      const rawHour = Number(this._config.hour_step ?? 1);
+      const rawMinute = Number(this._config.minute_step ?? 1);
+      const hours = Number.isFinite(rawHour) && rawHour > 0 ? Math.floor(rawHour) : 1;
+      let minutes = Number.isFinite(rawMinute) && rawMinute > 0 ? Math.floor(rawMinute) : 1;
+      minutes = Math.min(minutes, 59);
+      return { hours, minutes };
+    }
+
+    _adjustTimeValue(part, direction, stateObj) {
+      const state = stateObj ?? this.hass?.states?.[this._config.entity];
+      if (!state) {
+        return;
+      }
+
+      const steps = this._getTimeSteps();
+      const draft = this._timeDraft ? { ...this._timeDraft } : this._splitTime(this._currentNumericValue(state));
+      const baseTotal = Math.max(0, draft.hours) * 60 + draft.minutes;
+      const deltaMinutes = part === "hours"
+        ? direction * steps.hours * 60
+        : direction * steps.minutes;
+      const target = baseTotal + deltaMinutes;
+      const bounded = this._applyBounds(target < 0 ? 0 : target, state);
+      const parts = this._splitTime(bounded);
+      this._timeDraft = parts;
+      this._commitNumeric(bounded, state);
+    }
+
+    _sanitizeTimePart(part, rawValue) {
+      const digits = `${rawValue ?? ""}`.replace(/[^0-9]/g, "");
+      if (digits === "") {
+        return 0;
+      }
+      let numeric = Number(digits);
+      if (!Number.isFinite(numeric)) {
+        return 0;
+      }
+      numeric = Math.floor(numeric);
+      if (part === "minutes") {
+        numeric = Math.min(Math.max(numeric, 0), 59);
+      }
+      if (part === "hours") {
+        numeric = Math.max(numeric, 0);
+      }
+      return numeric;
+    }
+
+    _splitTime(total) {
+      const numeric = Number(total);
+      const safe = Number.isFinite(numeric) ? Math.max(0, Math.round(numeric)) : 0;
+      const hours = Math.floor(safe / 60);
+      const minutes = safe % 60;
+      return { hours, minutes };
+    }
+
+    _formatTimePart(value) {
+      const numeric = Number(value);
+      const safe = Number.isFinite(numeric) ? Math.max(0, Math.floor(numeric)) : 0;
+      return safe.toString().padStart(2, "0");
+    }
+
+    _formatTimeLabel(value) {
+      const parts = this._splitTime(value);
+      return `${this._formatTimePart(parts.hours)}:${this._formatTimePart(parts.minutes)}`;
+    }
+
+    _currentNumericValue(stateObj) {
+      const raw = this._value ?? stateObj.state;
+      const numeric = this._toNumber(raw);
+      return numeric ?? 0;
     }
 
     _submitValue(rawValue) {
@@ -296,40 +550,57 @@ const registerLargeNumberInputCard = async () => {
         return;
       }
 
-      let target = this._toNumber(rawValue);
+      const target = this._toNumber(rawValue);
       if (target === null) {
         this._value = this._formatValue(stateObj.state);
         return;
       }
 
-      const min = this._resolveNumber("min", stateObj);
-      const max = this._resolveNumber("max", stateObj);
+      this._commitNumeric(target, stateObj);
+    }
 
-      if (min !== undefined && target < min) {
-        target = min;
-      }
-      if (max !== undefined && target > max) {
-        target = max;
-      }
-
-      const current = this._toNumber(stateObj.state);
-      if (current !== null && Math.abs(current - target) < (this._resolveNumber("step", stateObj) ?? 1) / 1e6) {
-        this._value = this._formatValue(target);
+    _commitNumeric(target, stateObj = this.hass?.states?.[this._config.entity]) {
+      if (!stateObj) {
         return;
       }
 
-      this._value = this._formatValue(target);
+      const bounded = this._applyBounds(target, stateObj);
+      const current = this._toNumber(stateObj.state);
+      const step = this._resolveNumber("step", stateObj) ?? 1;
+
+      if (current !== null && Math.abs(current - bounded) < step / 1e6) {
+        this._value = this._formatValue(bounded);
+        return;
+      }
+
+      this._value = this._formatValue(bounded);
       this._isSyncing = true;
       const domain = stateObj.entity_id.split(".")[0];
 
       this.hass
         .callService(domain, "set_value", {
           entity_id: stateObj.entity_id,
-          value: target,
+          value: bounded,
         })
         .finally(() => {
           this._isSyncing = false;
         });
+    }
+
+    _applyBounds(value, stateObj) {
+      let numeric = Number(value);
+      if (!Number.isFinite(numeric)) {
+        numeric = 0;
+      }
+      const min = this._resolveNumber("min", stateObj);
+      const max = this._resolveNumber("max", stateObj);
+      if (min !== undefined && numeric < min) {
+        numeric = min;
+      }
+      if (max !== undefined && numeric > max) {
+        numeric = max;
+      }
+      return numeric;
     }
 
     _synchroniseState() {
@@ -344,6 +615,7 @@ const registerLargeNumberInputCard = async () => {
 
       const numeric = this._toNumber(stateObj.state);
       this._value = this._formatValue(numeric ?? stateObj.state);
+      this._timeDraft = null;
     }
 
     _resolveNumber(key, stateObj) {
@@ -459,4 +731,4 @@ const registerLargeNumberInputCard = async () => {
 
 registerLargeNumberInputCard();
 
-export const version = "0.1.2";
+export const version = "0.2.0";

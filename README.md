@@ -1,14 +1,15 @@
 # Large Number Input Card
 
-A Home Assistant Lovelace card that turns any `number` or `input_number` entity into an oversized numeric keypad with clear, easily-tappable controls.
+A Home Assistant Lovelace card that turns any `number` or `input_number` entity into an oversized numeric or time input with clear, easily-tappable controls.
 
 ## Features
 
-- Big, high-contrast number entry tailored for wall tablets and touch screens
-- Optional +/- buttons that respect min/max/step constraints
-- Automatic clamping to entity limits with optional overrides
+- Big, high-contrast inputs tailored for wall tablets and touch screens
+- Optional step buttons that respect entity min/max/step constraints
+- Time mode that splits a total-minute value into hour and minute columns with wrap-aware buttons
+- Automatic clamping to entity-provided bounds with optional overrides
 - Customisable width, font size and colours via CSS variables
-- Supports both `number` and `input_number` domains
+- Supports both `number` and `input_number` domains (time mode expects the entity value to be stored in minutes)
 
 ## Installation
 
@@ -27,6 +28,8 @@ A Home Assistant Lovelace card that turns any `number` or `input_number` entity 
 
 ## Usage
 
+### Single value
+
 ```yaml
 type: custom:large-number-input-card
 entity: input_number.living_room_volume
@@ -35,18 +38,36 @@ show_buttons: true
 precision: 1
 ```
 
+### Time value (hours + minutes)
+
+```yaml
+type: custom:large-number-input-card
+entity: input_number.irrigation_duration
+mode: time
+name: Watering Duration
+hour_step: 1
+minute_step: 5
+show_buttons: true
+```
+
+When `mode: time` is enabled the card expects the entity to expose a numeric value measured in minutes. The card handles the hour/minute split, wraps minute increments across hour boundaries, and honours the entity min/max limits.
+
 ### Options
 
 | Option | Type | Default | Description |
 | ------ | ---- | ------- | ----------- |
 | `entity` | string | - | Required. `number.*` or `input_number.*` entity ID. |
 | `name` | string | friendly name | Card title. |
-| `show_buttons` | boolean | `true` | Show +/- controls alongside the input. |
-| `min` | number | entity min | Override entity minimum. |
-| `max` | number | entity max | Override entity maximum. |
-| `step` | number | entity step | Override entity step size. |
+| `mode` | string | `number` | `number` for a single numeric field, `time` to use hour/minute columns. |
+| `show_buttons` | boolean | `true` | Show the step buttons next to the inputs. |
+| `min` | number | entity min | Override entity minimum. Applied to the underlying numeric value (minutes in time mode). |
+| `max` | number | entity max | Override entity maximum. Applied to the underlying numeric value. |
+| `step` | number | entity step | Override numeric step size (number mode only). |
+| `hour_step` | number | `1` | Hour increment size when `mode: time`. |
+| `minute_step` | number | `1` | Minute increment size when `mode: time` (capped at 59). |
+| `time_separator` | string | `:` | Separator rendered between the hour and minute columns. |
 | `unit` | string | entity unit | Displayed next to the limits row. |
-| `precision` | number | entity step aware | Force decimal precision for display. |
+| `precision` | number | entity step aware | Force decimal precision for display (number mode only). |
 
 ### Styling Hooks
 
@@ -64,6 +85,13 @@ Adjust the card appearance with Lovelace theme variables or card-mod. Available 
 - `--lnic-button-background`
 - `--lnic-button-color`
 - `--lnic-box-shadow`
+- `--lnic-time-button-size`
+- `--lnic-time-button-radius`
+- `--lnic-time-button-font-size`
+- `--lnic-time-input-width`
+- `--lnic-time-input-padding`
+- `--lnic-time-input-font-size`
+- `--lnic-time-separator-size`
 
 Example card-mod snippet:
 
@@ -76,6 +104,8 @@ card_mod:
       --lnic-input-width: 18rem;
       --lnic-input-font-size: 3rem;
       --lnic-button-background: var(--primary-color);
+      --lnic-time-input-width: 6rem;
+      --lnic-time-button-size: 40px;
     }
 ```
 
