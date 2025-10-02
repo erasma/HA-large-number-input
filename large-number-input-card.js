@@ -192,7 +192,7 @@ const registerLargeNumberInputCard = async () => {
         precision: config.precision,
         tap_action: config.tap_action,
         hold_action: config.hold_action,
-        double_tap_action: config.double_tap_action,
+        double_tap_action: config.double_action,
         ...config,
       };
     }
