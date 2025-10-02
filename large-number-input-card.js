@@ -137,7 +137,8 @@ const registerLargeNumberInputCard = async () => {
         border-radius: 50%;
         width: 50px;
         height: 50px;
-        font-size: 2rem;\n        display: grid;
+        font-size: 2rem;
+        display: grid;
         place-items: center;
         cursor: pointer;
         background: var(--lnic-button-background, var(--primary-color));
