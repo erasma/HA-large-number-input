@@ -463,7 +463,14 @@ const registerLargeNumberInputCard = async () => {
       this._commitNumeric(bounded, stateObj);
     }
 
-    _handleTimeInput(part, event, stateObj) {`r`n      this._isTimeEditing = true;`r`n`r`n      if (!stateObj) {`r`n        return;`r`n      }`r`n`r`n      const raw = `${event?.target?.value ?? ''}`;
+    _handleTimeInput(part, event, stateObj) {
+      this._isTimeEditing = true;
+
+      if (!stateObj) {
+        return;
+      }
+
+      const raw = `${event?.target?.value ?? ''}`;
       let digits = raw.replace(/[^0-9]/g, '');
       if (part === 'minutes' && digits.length > 2) {
         digits = digits.slice(-2);
