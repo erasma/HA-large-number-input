@@ -232,6 +232,7 @@ const registerLargeNumberInputCard = async () => {
       this._isSyncing = false;
       this._timeDraft = null;
       this._isTimeEditing = false;
+      this._timeFocusOriginal = null;
     }
 
     setConfig(config) {
@@ -428,11 +429,17 @@ const registerLargeNumberInputCard = async () => {
         return;
       }
 
-      if (!this._timeDraft) {
-        this._timeDraft = this._splitTime(this._currentNumericValue(stateObj));
-      }
-
+      const current = this._timeDraft ? { ...this._timeDraft } : this._splitTime(this._currentNumericValue(stateObj));
+      this._timeFocusOriginal = { ...current };
+      const draft = { ...current };
+      draft[part] = 0;
+      this._timeDraft = draft;
       this._isTimeEditing = true;
+
+      if (event?.target) {
+        event.target.value = '';
+        event.target.select?.();
+      }
     }
 
     _handleInput(event) {
@@ -456,21 +463,48 @@ const registerLargeNumberInputCard = async () => {
       this._commitNumeric(bounded, stateObj);
     }
 
-    _handleTimeInput(part, event, stateObj) {
-      this._isTimeEditing = true;
-      const numeric = this._sanitizeTimePart(part, event?.target?.value);
-      const draft = this._timeDraft ? { ...this._timeDraft } : this._splitTime(this._currentNumericValue(stateObj));
+    _handleTimeInput(part, event, stateObj) {`r`n      this._isTimeEditing = true;`r`n`r`n      if (!stateObj) {`r`n        return;`r`n      }`r`n`r`n      const raw = `${event?.target?.value ?? ''}`;
+      let digits = raw.replace(/[^0-9]/g, '');
+      if (part === 'minutes' && digits.length > 2) {
+        digits = digits.slice(-2);
+      } else if (part === 'hours' && digits.length > 3) {
+        digits = digits.slice(-3);
+      }
+
+      if (event?.target) {
+        event.target.value = digits;
+      }
+
+      const source = this._timeDraft ? { ...this._timeDraft } : this._splitTime(this._currentNumericValue(stateObj));
+      const draft = { ...source };
+      let numeric = digits === '' ? 0 : Number(digits);
+      if (part === 'minutes') {
+        numeric = Math.min(Math.max(numeric, 0), 59);
+      } else {
+        numeric = Math.max(numeric, 0);
+      }
       draft[part] = numeric;
       this._timeDraft = draft;
-      if (event?.target) {
-        event.target.value = this._formatTimePart(numeric);
-      }
     }
 
     _commitTimeInput(part, event, stateObj) {
+      const rawDigits = `${event?.target?.value ?? ''}`.replace(/[^0-9]/g, '');
+      if (rawDigits === '' && this._timeFocusOriginal) {
+        this._timeDraft = { ...this._timeFocusOriginal };
+        if (event?.target) {
+          event.target.value = this._formatTimePart(this._timeDraft[part]);
+        }
+        this._isTimeEditing = false;
+        this._timeFocusOriginal = null;
+        return;
+      }
+
       this._handleTimeInput(part, event, stateObj);
       this._applyTimeDraft(stateObj);
-      this._isTimeEditing = false;
+
+      if (event?.target && this._timeDraft) {
+        event.target.value = this._formatTimePart(this._timeDraft[part]);
+      }
     }
 
     _applyTimeDraft(stateObj) {
@@ -485,6 +519,7 @@ const registerLargeNumberInputCard = async () => {
       this._timeDraft = parts;
       this._commitNumeric(bounded, stateObj);
       this._isTimeEditing = false;
+      this._timeFocusOriginal = null;
     }
 
     _getTimeDisplayParts(value, stateObj) {
@@ -505,6 +540,7 @@ const registerLargeNumberInputCard = async () => {
 
     _adjustTimeValue(part, direction, stateObj) {
       this._isTimeEditing = false;
+      this._timeFocusOriginal = null;
       const state = stateObj ?? this.hass?.states?.[this._config.entity];
       if (!state) {
         return;
@@ -733,6 +769,7 @@ const registerLargeNumberInputCard = async () => {
       this._value = this._formatValue(coerced ?? stateObj.state);
       this._timeDraft = null;
       this._isTimeEditing = false;
+      this._timeFocusOriginal = null;
     }
 
     _resolveNumber(key, stateObj) {
@@ -848,22 +885,4 @@ const registerLargeNumberInputCard = async () => {
 
 registerLargeNumberInputCard();
 
-export const version = "0.2.3";
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+export const version = "0.2.4";
