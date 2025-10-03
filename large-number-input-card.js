@@ -161,15 +161,6 @@ const registerLargeNumberInputCard = async () => {
         filter: none;
       }
 
-      .meta {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-        justify-content: center;
-        font-size: 0.95rem;
-        color: var(--secondary-text-color);
-      }
-
       .time-grid {
         display: flex;
         align-items: center;
@@ -217,6 +208,15 @@ const registerLargeNumberInputCard = async () => {
         font-weight: 600;
         color: var(--lnic-text-color, var(--primary-text-color));
         padding: 0 0.5rem;
+      }
+
+      .meta {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+        font-size: 0.95rem;
+        color: var(--secondary-text-color);
       }
     `;
 
@@ -300,7 +300,7 @@ const registerLargeNumberInputCard = async () => {
         ? this._renderTimeControls({
             stateObj,
             disabled,
-            value: numericValue ?? 0,
+            value: numericValue ?? this._currentNumericValue(stateObj),
           })
         : this._renderNumberControls({
             value: this._formatValue(rawValue),
@@ -539,6 +539,16 @@ const registerLargeNumberInputCard = async () => {
     }
 
     _currentNumericValue(stateObj) {
+      if (!stateObj) {
+        return 0;
+      }
+
+      const domain = this._entityDomain(stateObj);
+      if (domain === "input_datetime") {
+        const minutes = this._minutesFromInputDatetime(stateObj);
+        return minutes ?? 0;
+      }
+
       const raw = this._value ?? stateObj.state;
       const numeric = this._toNumber(raw);
       return numeric ?? 0;
@@ -565,23 +575,36 @@ const registerLargeNumberInputCard = async () => {
       }
 
       const bounded = this._applyBounds(target, stateObj);
-      const current = this._toNumber(stateObj.state);
-      const step = this._resolveNumber("step", stateObj) ?? 1;
+      const current = this._currentNumericValue(stateObj);
+      const step = this._config.mode === "time" ? 1 : this._resolveNumber("step", stateObj) ?? 1;
 
-      if (current !== null && Math.abs(current - bounded) < step / 1e6) {
+      if (Math.abs(current - bounded) < step / 1e6) {
         this._value = this._formatValue(bounded);
         return;
       }
 
       this._value = this._formatValue(bounded);
       this._isSyncing = true;
-      const domain = stateObj.entity_id.split(".")[0];
 
-      this.hass
-        .callService(domain, "set_value", {
+      const domain = this._entityDomain(stateObj);
+      let servicePromise;
+
+      if (domain === "input_datetime") {
+        const payload = this._buildInputDatetimePayload(bounded, stateObj);
+        if (!payload) {
+          this._isSyncing = false;
+          return;
+        }
+        servicePromise = this.hass.callService("input_datetime", "set_datetime", payload);
+      } else {
+        servicePromise = this.hass.callService(domain, "set_value", {
           entity_id: stateObj.entity_id,
           value: bounded,
-        })
+        });
+      }
+
+      Promise.resolve(servicePromise)
+        .catch(() => {})
         .finally(() => {
           this._isSyncing = false;
         });
@@ -592,6 +615,16 @@ const registerLargeNumberInputCard = async () => {
       if (!Number.isFinite(numeric)) {
         numeric = 0;
       }
+
+      const domain = this._entityDomain(stateObj);
+      if (domain === "input_datetime") {
+        const attributes = stateObj?.attributes ?? {};
+        if (attributes.has_time) {
+          const maxMinutes = attributes.has_date ? 24 * 60 - 1 : 24 * 60 - 1;
+          numeric = Math.min(Math.max(numeric, 0), maxMinutes);
+        }
+      }
+
       const min = this._resolveNumber("min", stateObj);
       const max = this._resolveNumber("max", stateObj);
       if (min !== undefined && numeric < min) {
@@ -601,6 +634,64 @@ const registerLargeNumberInputCard = async () => {
         numeric = max;
       }
       return numeric;
+    }
+
+    _minutesFromInputDatetime(stateObj) {
+      const attributes = stateObj?.attributes ?? {};
+      if (!attributes.has_time) {
+        return null;
+      }
+
+      let value = stateObj.state;
+      if (!value) {
+        return null;
+      }
+
+      if (attributes.has_date && value.includes(" ")) {
+        value = value.split(" ")[1];
+      }
+
+      const [hourStr, minuteStr] = value.split(":");
+      const hours = Number(hourStr);
+      const minutes = Number(minuteStr);
+      if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+        return null;
+      }
+      return hours * 60 + minutes;
+    }
+
+    _buildInputDatetimePayload(minutes, stateObj) {
+      const attributes = stateObj?.attributes ?? {};
+      if (!attributes.has_time) {
+        console.warn("large-number-input-card: input_datetime entity must have time enabled");
+        return null;
+      }
+
+      const safe = Math.min(Math.max(Math.round(minutes), 0), 24 * 60 - 1);
+      const parts = this._splitTime(safe);
+      const time = `${this._formatTimePart(parts.hours)}:${this._formatTimePart(parts.minutes)}:00`;
+
+      const payload = {
+        entity_id: stateObj.entity_id,
+        time,
+      };
+
+      if (attributes.has_date) {
+        if (stateObj.state && stateObj.state.includes(" ")) {
+          payload.date = stateObj.state.split(" ")[0];
+        } else if (attributes.year && attributes.month && attributes.day) {
+          const year = String(attributes.year).padStart(4, "0");
+          const month = String(attributes.month).padStart(2, "0");
+          const day = String(attributes.day).padStart(2, "0");
+          payload.date = `${year}-${month}-${day}`;
+        }
+      }
+
+      return payload;
+    }
+
+    _entityDomain(stateObj) {
+      return stateObj?.entity_id?.split(".")?.[0] ?? "";
     }
 
     _synchroniseState() {
@@ -614,7 +705,9 @@ const registerLargeNumberInputCard = async () => {
       }
 
       const numeric = this._toNumber(stateObj.state);
-      this._value = this._formatValue(numeric ?? stateObj.state);
+      const domain = this._entityDomain(stateObj);
+      const coerced = domain === "input_datetime" ? this._minutesFromInputDatetime(stateObj) : numeric;
+      this._value = this._formatValue(coerced ?? stateObj.state);
       this._timeDraft = null;
     }
 
@@ -731,4 +824,4 @@ const registerLargeNumberInputCard = async () => {
 
 registerLargeNumberInputCard();
 
-export const version = "0.2.0";
+export const version = "0.2.1";

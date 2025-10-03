@@ -9,7 +9,7 @@ A Home Assistant Lovelace card that turns any `number` or `input_number` entity 
 - Time mode that splits a total-minute value into hour and minute columns with wrap-aware buttons
 - Automatic clamping to entity-provided bounds with optional overrides
 - Customisable width, font size and colours via CSS variables
-- Supports both `number` and `input_number` domains (time mode expects the entity value to be stored in minutes)
+- Supports both `number` and `input_number` domains (time mode also works with `input_datetime` entities that have time enabled)
 
 ## Installation
 
@@ -50,7 +50,7 @@ minute_step: 5
 show_buttons: true
 ```
 
-When `mode: time` is enabled the card expects the entity to expose a numeric value measured in minutes. The card handles the hour/minute split, wraps minute increments across hour boundaries, and honours the entity min/max limits.
+When `mode: time` is enabled the card expects the entity to expose a numeric value measured in minutes. You can back this with an `input_number` storing minutes or an `input_datetime` that has time enabled (the card will call `input_datetime.set_datetime` for you). The card handles the hour/minute split, wraps minute increments across hour boundaries, and honours the entity min/max limits.
 
 ### Options
 
@@ -68,6 +68,8 @@ When `mode: time` is enabled the card expects the entity to expose a numeric val
 | `time_separator` | string | `:` | Separator rendered between the hour and minute columns. |
 | `unit` | string | entity unit | Displayed next to the limits row. |
 | `precision` | number | entity step aware | Force decimal precision for display (number mode only). |
+
+> **Note:** When using `mode: time` with an `input_datetime`, Home Assistant limits values to 23:59. For longer durations, back the card with an `input_number` that stores the total minutes.
 
 ### Styling Hooks
 
