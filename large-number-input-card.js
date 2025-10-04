@@ -175,10 +175,37 @@ const registerLargeNumberInputCard = async () => {
 
       .time-column {
         display: grid;
-        grid-template-rows: auto auto auto;
+        grid-template-rows: auto auto auto auto;
         align-items: center;
         justify-items: center;
         gap: 8px;
+      }
+
+      .time-label {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--secondary-text-color);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .ampm-indicator {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--primary-text-color);
+        align-self: center;
+      }
+
+      .ampm-indicator span {
+        opacity: 0.3;
+        transition: opacity 0.2s ease;
+      }
+
+      .ampm-indicator span.active {
+        opacity: 1;
       }
 
       .time-button {
@@ -363,11 +390,16 @@ const registerLargeNumberInputCard = async () => {
     _renderTimeControls({ stateObj, disabled, value }) {
       const parts = this._getTimeDisplayParts(value, stateObj);
       const separator = this._config.time_separator ?? ":";
+      const isAM = parts.hours < 12;
       return html`
         <div class="time-grid">
           ${this._renderTimeColumn({ part: "hours", value: parts.hours, disabled, stateObj })}
           <div class="time-separator" aria-hidden="true">${separator}</div>
           ${this._renderTimeColumn({ part: "minutes", value: parts.minutes, disabled, stateObj })}
+          <div class="ampm-indicator">
+            <span class="${isAM ? 'active' : ''}">AM</span>
+            <span class="${!isAM ? 'active' : ''}">PM</span>
+          </div>
         </div>
       `;
     }
@@ -378,6 +410,7 @@ const registerLargeNumberInputCard = async () => {
       const increaseLabel = isHours ? "Increase hours" : "Increase minutes";
       const decreaseLabel = isHours ? "Decrease hours" : "Decrease minutes";
       const displayValue = this._formatTimePart(value);
+      const label = isHours ? "HH" : "MM";
 
       return html`
         <div class="time-column">
@@ -420,6 +453,7 @@ const registerLargeNumberInputCard = async () => {
                 &#9660;
               </button>`
             : null}
+          <div class="time-label">${label}</div>
         </div>
       `;
     }
