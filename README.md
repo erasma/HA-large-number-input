@@ -2,7 +2,7 @@
  
 A Home Assistant Lovelace card that turns any `number` or `input_number` entity into an oversized numeric or time input with clear, easily-tappable controls.
 
-<img width="541" height="281" alt="image" src="https://github.com/user-attachments/assets/d283229c-c190-4a1a-b5c0-1ec4c8912549" />
+<img width="468" height="261" alt="image" src="https://github.com/user-attachments/assets/874364b1-dc9c-4a02-8708-1e901f1bfbb2" />
 
 
 ## Features
@@ -10,6 +10,7 @@ A Home Assistant Lovelace card that turns any `number` or `input_number` entity 
 - Big, high-contrast inputs tailored for wall tablets and touch screens
 - Optional step buttons that respect entity min/max/step constraints
 - Time mode that splits a total-minute value into hour and minute columns with wrap-aware buttons
+- **Visual enhancements in time mode**: HH/MM labels below inputs and AM/PM indicator showing active period
 - Automatic clamping to entity-provided bounds with optional overrides
 - Customisable width, font size and colours via CSS variables
 - Supports both `number` and `input_number` domains (time mode also works with `input_datetime` entities that have time enabled)
@@ -54,6 +55,10 @@ show_buttons: true
 ```
 
 When `mode: time` is enabled the card expects the entity to expose a numeric value measured in minutes. You can back this with an `input_number` storing minutes or an `input_datetime` that has time enabled (the card will call `input_datetime.set_datetime` for you). The card handles the hour/minute split, wraps minute increments across hour boundaries, and honours the entity min/max limits.
+
+**Time mode visual features:**
+- **HH/MM labels**: Clear labels appear below each time input to indicate hours and minutes
+- **AM/PM indicator**: A vertical indicator displays both AM and PM, with the active period highlighted (full opacity) and inactive dimmed (30% opacity)
 
 ### Options
 
