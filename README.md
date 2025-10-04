@@ -2,7 +2,7 @@
  
 A Home Assistant Lovelace card that turns any `number` or `input_number` entity into an oversized numeric or time input with clear, easily-tappable controls.
 
-<img width="541" height="281" alt="image" src="https://github.com/user-attachments/assets/d283229c-c190-4a1a-b5c0-1ec4c8912549" />
+<img width="468" height="261" alt="image" src="https://github.com/user-attachments/assets/874364b1-dc9c-4a02-8708-1e901f1bfbb2" />
 
 
 ## Features
