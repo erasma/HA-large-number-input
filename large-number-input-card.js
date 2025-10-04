@@ -427,6 +427,7 @@ const registerLargeNumberInputCard = async () => {
                 &#9650;
               </button>`
             : null}
+          <div class="time-label">${label}</div>
           <input
             class="time-input"
             type="text"
@@ -453,7 +454,6 @@ const registerLargeNumberInputCard = async () => {
                 &#9660;
               </button>`
             : null}
-          <div class="time-label">${label}</div>
         </div>
       `;
     }
